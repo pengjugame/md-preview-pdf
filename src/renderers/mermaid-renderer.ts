@@ -85,7 +85,9 @@ export async function renderMermaidToSvg(
   try {
     // Sanitize options for safe interpolation into HTML/JS contexts
     const safeTheme = VALID_MERMAID_THEMES.includes(options.theme || '') ? options.theme! : 'default';
-    const safeFontFamily = sanitizeJsString(options.fontFamily || '"Segoe UI", Arial, sans-serif');
+    // Fix: default uses SimHei (no spaces, bypasses sanitizeJsString quote-stripping bug)
+    // "Segoe UI" would become "Segoe UI" after sanitize → CSS can't parse multi-word unquoted names
+    const safeFontFamily = sanitizeJsString(options.fontFamily || 'SimHei,sans-serif');
     const safeBgColor = sanitizeJsString(options.backgroundColor || 'transparent');
 
     // Base64-encode diagram content to prevent XSS when embedding in HTML
@@ -256,7 +258,7 @@ export async function renderMermaidInBrowser(
             startOnLoad: false,
             theme: opts.theme || 'default',
             securityLevel: 'antiscript',
-            fontFamily: opts.fontFamily || '"Segoe UI", Arial, sans-serif',
+            fontFamily: opts.fontFamily || 'SimHei,sans-serif',
             gantt: {
               useWidth: 1000, // Use full width available
               gridLineStartPadding: 10,
@@ -268,7 +270,11 @@ export async function renderMermaidInBrowser(
           mermaidDivs.forEach((div) => {
             const encoded = div.getAttribute('data-mermaid');
             if (encoded) {
-              div.textContent = atob(encoded);
+              // Fix: atob() only handles Latin-1; use TextDecoder for proper UTF-8 support
+              // Without this, Chinese/CJK characters in Mermaid diagrams appear garbled
+              div.textContent = new TextDecoder('utf-8').decode(
+                Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0))
+              );
               div.removeAttribute('data-mermaid');
             }
           });

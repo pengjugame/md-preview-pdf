@@ -111,6 +111,13 @@ export async function generateHtml(
     processedHtml = await processImages(processedHtml, options.basePath);
   }
 
+  // Insert <wbr> after path separators in inline code so long paths can wrap
+  // at directory boundaries (keeps table min-content = longest path segment,
+  // preventing page overflow; short tokens without "/" stay unbreakable)
+  processedHtml = processedHtml.replace(/<code>([^<]+)<\/code>/g, (m, txt) =>
+    `<code>${txt.replace(/([\/\\])/g, '$1<wbr>')}</code>`
+  );
+
   // Document title - escape to prevent XSS
   const title = escapeHtml(parsed.frontMatter.title || 'Document');
 

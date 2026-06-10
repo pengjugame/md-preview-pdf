@@ -259,6 +259,8 @@ export async function renderPDF(
     pdf?: PDFOptions;
     mermaid?: MermaidOptions;
     debug?: boolean;
+    /** 渲染完成（mermaid 已转 SVG）后回调最终 DOM，供 --html 输出所见即所得的页面 */
+    onFinalHtml?: (finalHtml: string) => void;
   } = {}
 ): Promise<Buffer> {
   let browser: Browser | null = null;
@@ -306,6 +308,16 @@ export async function renderPDF(
         });
       });
     });
+
+    // Capture final rendered DOM (mermaid SVGs included) for HTML output
+    if (options.onFinalHtml) {
+      try {
+        const finalHtml = await page.content();
+        options.onFinalHtml(finalHtml);
+      } catch (error) {
+        logger.warn(`Final HTML capture failed: ${error}`);
+      }
+    }
 
     // Generate PDF
     const pdfOptions = convertPDFOptions(options.pdf);

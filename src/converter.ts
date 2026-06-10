@@ -213,21 +213,24 @@ export class Converter {
       logger.info('Generating HTML...');
       const html = await generateHtml(parsed, options);
 
-      // Save HTML if requested
-      let htmlPath: string | undefined;
-      if (options.outputHtml) {
-        htmlPath = changeExtension(absoluteOutputPath, 'html');
-        await writeFile(htmlPath, html);
-        logger.info(`HTML saved: ${htmlPath}`);
-      }
-
-      // Generate PDF
+      // Generate PDF (capture final rendered DOM for HTML output if requested)
       logger.info('Generating PDF...');
+      let finalHtml: string | undefined;
       const pdfBuffer = await renderPDF(html, {
         pdf: options.pdf,
         mermaid: options.mermaid,
         debug: options.debug,
+        onFinalHtml: options.outputHtml ? (h) => { finalHtml = h; } : undefined,
       });
+
+      // Save HTML if requested — use post-render DOM so mermaid diagrams
+      // appear as inline SVG (same as PDF); fall back to pre-render HTML
+      let htmlPath: string | undefined;
+      if (options.outputHtml) {
+        htmlPath = changeExtension(absoluteOutputPath, 'html');
+        await writeFile(htmlPath, finalHtml ?? html);
+        logger.info(`HTML saved: ${htmlPath}`);
+      }
 
       // Save PDF
       await writeFile(absoluteOutputPath, pdfBuffer);
